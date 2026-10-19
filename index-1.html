@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCQ Examination</title>
+<style>
+  :root {
+    --bg: #eef2f3;
+    --card: #ffffff;
+    --ink: #17262b;
+    --muted: #5b6b70;
+    --line: #d3dde0;
+    --primary: #0f5568;
+    --primary-dark: #0a3e4d;
+    --primary-tint: #e1f0f4;
+    --answered: #1f7a4d;
+    --answered-tint: #e3f4ea;
+    --warn: #b7791f;
+    --danger: #b42318;
+    --danger-tint: #fdecea;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.5;
+  }
+  body.exam-active .no-select { -webkit-user-select: none; user-select: none; }
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible {
+    outline: 3px solid #f0a020;
+    outline-offset: 2px;
+  }
+  .hidden { display: none !important; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 16px; }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    border: 2px solid var(--primary);
+    background: var(--card);
+    color: var(--primary);
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    min-height: 44px;
+  }
+  .btn:hover:not(:disabled) { background: var(--primary-tint); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primary { background: var(--primary); color: #fff; }
+  .btn.primary:hover:not(:disabled) { background: var(--primary-dark); }
+  .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn.danger:hover:not(:disabled) { background: #8f1a10; }
+  .btn.text { border-color: transparent; background: transparent; text-decoration: underline; }
+
+  /* ---------- Start screen ---------- */
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px;
+  }
+  .start-wrap { max-width: 720px; margin: 0 auto; }
+  .start-title { font-family: Georgia, "Times New Roman", serif; font-size: 1.9rem; line-height: 1.2; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); margin: 0 0 18px; }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; padding: 0; list-style: none; }
+  .facts li { background: var(--primary-tint); border-radius: 8px; padding: 8px 14px; font-weight: 600; color: var(--primary-dark); }
+  .instructions { margin: 0 0 20px; padding-left: 20px; }
+  .instructions li { margin-bottom: 6px; }
+  .field label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 12px; font: inherit; border: 2px solid var(--line); border-radius: 10px;
+  }
+  .field input:focus { border-color: var(--primary); }
+  .error-text { color: var(--danger); font-weight: 600; margin: 8px 0 0; min-height: 1.4em; }
+  .problem-box { background: var(--danger-tint); border: 2px solid var(--danger); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
+  .problem-box ul { margin: 8px 0 0; padding-left: 20px; }
+
+  /* ---------- Exam screen ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--primary-dark); color: #fff;
+  }
+  .topbar-inner {
+    max-width: 1080px; margin: 0 auto; padding: 10px 16px;
+    display: flex; align-items: center; gap: 12px; justify-content: space-between;
+  }
+  .topbar-title { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .timer {
+    font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.25rem;
+    background: rgba(255,255,255,.14); padding: 6px 12px; border-radius: 8px;
+  }
+  .timer.low { background: var(--danger); animation: pulse 1s infinite; }
+  @media (prefers-reduced-motion: reduce) { .timer.low { animation: none; } }
+  @keyframes pulse { 50% { opacity: .7; } }
+  .topbar .btn.submit { background: #f4c542; border-color: #f4c542; color: #2b2100; }
+  .topbar .btn.submit:hover { background: #ffd96b; }
+  .violation-chip { background: var(--danger); color: #fff; border-radius: 8px; padding: 4px 10px; font-size: .85rem; font-weight: 700; }
+
+  .exam-layout { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+  .q-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+  .q-meta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: .9rem; margin-bottom: 10px; }
+  .q-section { font-weight: 600; color: var(--primary); }
+  .q-text { font-family: Georgia, "Times New Roman", serif; font-size: 1.3rem; line-height: 1.45; margin: 0 0 18px; }
+  .options { display: grid; gap: 10px; }
+  .opt {
+    display: flex; align-items: flex-start; gap: 12px; text-align: left; width: 100%;
+    background: #fff; border: 2px solid var(--line); border-radius: 10px; padding: 12px 14px; color: var(--ink);
+    min-height: 52px;
+  }
+  .opt:hover:not(:disabled) { border-color: var(--primary); }
+  .opt .letter {
+    flex: 0 0 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--bg); font-weight: 700; color: var(--primary-dark);
+  }
+  .opt .opt-text { padding-top: 3px; overflow-wrap: anywhere; }
+  .opt.selected { border-color: var(--primary); background: var(--primary-tint); }
+  .opt.selected .letter { background: var(--primary); color: #fff; }
+  .q-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin-top: 20px; }
+  .q-actions .group { display: flex; gap: 10px; }
+
+  .nav-panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; position: sticky; top: 74px; }
+  .nav-panel h2 { font-size: 1rem; margin: 0 0 4px; }
+  .progress-text { color: var(--muted); font-size: .9rem; margin: 0 0 10px; }
+  .nav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 6px; max-height: 50vh; overflow-y: auto; padding: 2px; }
+  .nav-btn {
+    height: 42px; border-radius: 8px; border: 2px solid var(--line); background: #fff; font-weight: 600; color: var(--ink);
+  }
+  .nav-btn.answered { background: var(--answered-tint); border-color: var(--answered); color: var(--answered); }
+  .nav-btn.current { outline: 3px solid var(--primary); outline-offset: 1px; background: var(--primary); border-color: var(--primary); color: #fff; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; font-size: .82rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; border: 2px solid var(--line); display: inline-block; }
+  .swatch.a { background: var(--answered-tint); border-color: var(--answered); }
+  .swatch.c { background: var(--primary); border-color: var(--primary); }
+
+  /* ---------- Modals ---------- */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(10, 20, 24, .7); z-index: 100;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .overlay.top { z-index: 120; }
+  .modal { background: #fff; border-radius: var(--radius); padding: 24px; max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { margin: 0 0 10px; }
+  .modal .modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px; }
+  .modal.warning { border: 6px solid var(--danger); background: var(--danger-tint); }
+  .modal.warning .warn-text { font-size: 1.15rem; font-weight: 700; color: var(--danger); }
+
+  /* ---------- Result screen ---------- */
+  .result-wrap { max-width: 820px; margin: 0 auto; }
+  .status-badge { display: inline-block; padding: 6px 14px; border-radius: 999px; font-weight: 700; background: var(--answered-tint); color: var(--answered); }
+  .status-badge.auto { background: var(--danger-tint); color: var(--danger); }
+  .score-big { font-family: Georgia, "Times New Roman", serif; font-size: 3rem; line-height: 1.1; margin: 14px 0 4px; }
+  .score-big small { font-size: 1.2rem; color: var(--muted); }
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }
+  .stat { border-radius: 10px; padding: 12px; text-align: center; border: 2px solid var(--line); }
+  .stat b { display: block; font-size: 1.6rem; }
+  .stat.good { border-color: var(--answered); background: var(--answered-tint); }
+  .stat.bad { border-color: var(--danger); background: var(--danger-tint); }
+  .note { color: var(--muted); font-size: .9rem; }
+  .result-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+  .review-item { border-top: 1px solid var(--line); padding: 16px 0; }
+  .review-item h3 { font-family: Georgia, "Times New Roman", serif; font-size: 1.05rem; margin: 0 0 8px; }
+  .review-opt { display: flex; gap: 8px; padding: 6px 10px; border-radius: 8px; border: 2px solid transparent; margin-bottom: 4px; }
+  .review-opt.correct { background: var(--answered-tint); border-color: var(--answered); }
+  .review-opt.wrong { background: var(--danger-tint); border-color: var(--danger); }
+  .review-opt .tag { margin-left: auto; font-weight: 700; font-size: .85rem; white-space: nowrap; }
+  .explain { background: var(--primary-tint); border-radius: 8px; padding: 8px 12px; margin-top: 6px; font-size: .95rem; }
+
+  @media (max-width: 800px) {
+    .exam-layout { grid-template-columns: 1fr; }
+    .nav-panel { position: static; }
+    .q-text { font-size: 1.15rem; }
+    .topbar-title { display: none; }
+    .topbar-inner { justify-content: space-between; }
+    .start-title { font-size: 1.5rem; }
+    .score-big { font-size: 2.4rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= START SCREEN ================= -->
+<main id="screenStart" class="wrap">
+  <div class="start-wrap panel">
+    <h1 class="start-title" id="startTitle"></h1>
+    <p class="subtitle" id="startSubtitle"></p>
+    <div id="problemBox" class="problem-box hidden" role="alert"></div>
+    <ul class="facts" id="facts"></ul>
+    <h2 style="font-size:1.1rem;margin:0 0 8px;">Instructions</h2>
+    <ul class="instructions" id="instructions"></ul>
+    <div class="field">
+      <label for="studentName" id="nameLabel">Your name</label>
+      <input id="studentName" type="text" maxlength="60" autocomplete="name" placeholder="Type your full name">
+    </div>
+    <p class="error-text" id="startError" role="alert"></p>
+    <button id="startBtn" class="btn primary" type="button">Start test</button>
+  </div>
+</main>
+
+<!-- ================= EXAM SCREEN ================= -->
+<div id="screenExam" class="hidden">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-title" id="examTitle"></div>
+      <div class="topbar-right">
+        <span id="violationChip" class="violation-chip hidden">Warning 1 of 1</span>
+        <span id="timer" class="timer" role="timer" aria-label="Time remaining">00:00</span>
+        <button id="submitBtn" class="btn submit" type="button">Submit Test</button>
+      </div>
+    </div>
+  </header>
+  <main class="wrap no-select">
+    <div class="exam-layout">
+      <section class="q-card" aria-live="polite">
+        <div class="q-meta">
+          <span id="qCount"></span>
+          <span class="q-section" id="qSection"></span>
+        </div>
+        <p class="q-text" id="qText"></p>
+        <div class="options" id="options" role="radiogroup" aria-label="Answer options"></div>
+        <div class="q-actions">
+          <div class="group">
+            <button id="prevBtn" class="btn" type="button">Previous</button>
+            <button id="nextBtn" class="btn primary" type="button">Next</button>
+          </div>
+          <button id="clearBtn" class="btn text" type="button">Clear answer</button>
+        </div>
+      </section>
+      <aside class="nav-panel">
+        <h2>Question navigator</h2>
+        <p class="progress-text" id="progressText"></p>
+        <div class="nav-grid" id="navGrid"></div>
+        <div class="legend">
+          <span><i class="swatch a"></i>Answered</span>
+          <span><i class="swatch"></i>Not answered</span>
+          <span><i class="swatch c"></i>Current</span>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<!-- ================= RESULT SCREEN ================= -->
+<main id="screenResult" class="wrap hidden">
+  <div class="result-wrap">
+    <div class="panel">
+      <span id="statusBadge" class="status-badge"></span>
+      <h1 class="start-title" id="resultTitle" style="margin-top:12px;"></h1>
+      <p class="subtitle" id="resultWho"></p>
+      <div class="score-big" id="scoreBig"></div>
+      <p class="note" id="scoreNote"></p>
+      <div class="stat-row">
+        <div class="stat good"><b id="statCorrect">0</b>Correct</div>
+        <div class="stat bad"><b id="statWrong">0</b>Incorrect</div>
+        <div class="stat"><b id="statBlank">0</b>Unanswered</div>
+      </div>
+      <p class="note"><strong>Submission status:</strong> <span id="submitStatus"></span></p>
+      <p class="note">This result is calculated in your browser and is not sent anywhere automatically. Use the buttons below (or a screenshot) to send it to your tutor.</p>
+      <div class="result-actions">
+        <button id="copyBtn" class="btn primary" type="button">Copy result</button>
+        <a id="waLink" class="btn" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;">Share on WhatsApp</a>
+      </div>
+      <p class="note" id="copyMsg" role="status"></p>
+    </div>
+    <div class="panel" id="reviewPanel" style="margin-top:16px;">
+      <h2 style="margin-top:0;">Answer review</h2>
+      <div id="reviewList"></div>
+    </div>
+  </div>
+</main>
+
+<!-- ================= MODALS ================= -->
+<div id="confirmModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+  <div class="modal">
+    <h2 id="confirmTitle">Submit your test?</h2>
+    <p id="confirmText"></p>
+    <p><strong>After submitting you cannot change your answers.</strong></p>
+    <div class="modal-actions">
+      <button id="confirmCancel" class="btn" type="button">Go back to test</button>
+      <button id="confirmYes" class="btn danger" type="button">Yes, submit now</button>
+    </div>
+  </div>
+</div>
+
+<div id="warnModal" class="overlay top hidden" role="alertdialog" aria-modal="true" aria-labelledby="warnTitle" aria-describedby="warnText">
+  <div class="modal warning">
+    <h2 id="warnTitle" style="color:var(--danger)">Warning</h2>
+    <p id="warnText" class="warn-text">WARNING 1: Leaving the examination page is not allowed. One more violation will automatically submit your test.</p>
+    <div class="modal-actions">
+      <button id="warnOk" class="btn danger" type="button">I understand, continue test</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- =====================================================================
+     SCRIPT 1 of 2: SETTINGS AND QUESTIONS  (this is the only part you need to edit)
+     ===================================================================== -->
+<script>
+/* ======================================================================
+   IMPORTANT NOTE ABOUT SECURITY (please read)
+   ----------------------------------------------------------------------
+   This is a static website with NO backend server. Everything runs in the
+   student's own browser. That means:
+
+   * The anti-cheating features (tab-switch detection, reload warning,
+     copy/right-click blocking) are DETERRENTS ONLY. They are not
+     tamper-proof. A determined student can bypass them, for example by
+     using another device, split-screen, or browser developer tools.
+   * The correct answers are stored in this file, so a student who views the
+     page source can find them. Do not treat this as secure testing.
+   * Results are calculated on the student's device. They are NOT saved to
+     any server. The result screen offers "Copy result" and WhatsApp sharing
+     so students can send their result to you; this relies on honesty, and
+     a result could be edited before sending. Ask for screenshots if useful.
+   * Reloading the page restarts the test. The page cannot reliably stop a
+     reload or close; it can only show a browser warning where the browser
+     allows it.
+
+   For high-stakes exams, use a platform with server-side checking.
+   ====================================================================== */
+
+/* ---------------------- 1. TEST SETTINGS ---------------------- */
+const CONFIG = {
+  testTitle: "Class 6 Social Science: Chapter 6 Test",
+  testSubtitle: "The Beginnings of Indian Civilisation",
+
+  durationMinutes: 60,          // Time limit. The test auto-submits at zero.
+
+  marksPerCorrect: 1,           // Marks added for each correct answer.
+  negativeMarksPerWrong: 0,     // Marks deducted per wrong answer (0 = no negative marking, e.g. 0.25).
+  allowNegativeTotal: false,    // false = final marks never go below 0.
+
+  askStudentName: true,         // Show the name field.
+  nameRequired: false,          // true = student must type a name to start.
+
+  shuffleQuestions: false,      // true = questions appear in random order for each student.
+
+  showCorrectAnswersAfterSubmit: true,   // Show the answer review with correct answers.
+  showExplanationsAfterSubmit: true,     // Show explanations (if you added them).
+
+  blockCopyAndRightClick: true, // Deterrent: blocks copy, cut, paste, right-click during the test.
+
+  // Instructions shown on the start page. Edit freely.
+  instructions: [
+    "Each question has four options (A, B, C and D). Choose one answer.",
+    "You can change your answer any time before you submit.",
+    "Use the question navigator to jump to any question.",
+    "Do NOT leave this page, switch tabs or switch apps. The first time you do, you get a warning. The second time, your test is submitted automatically.",
+    "The test is submitted automatically when the timer reaches zero.",
+    "Do not reload the page. Reloading will restart the test."
+  ]
+};
+
+/* ---------------------- 2. YOUR QUESTIONS ----------------------
+   Each question looks like this:
+     {
+       section: "Section A",           // optional label shown above the question
+       question: "Question text?",
+       options: ["Option A", "Option B", "Option C", "Option D"],   // 4 options (True/False questions may use just 2)
+       answer: "C",                    // correct option: "A", "B", "C" or "D"
+       explanation: "Optional text shown after submission."        // optional, can be ""
+     },
+
+   TO USE YOUR OWN QUESTIONS: delete everything between the lines
+   "START OF QUESTIONS" and "END OF QUESTIONS" and paste your own.
+   Do not forget the comma after each question's closing brace.
+   The page checks your questions when it loads and lists any mistakes.
+   -------------------------------------------------------------- */
+const SEC_A = "Section A: Multiple Choice Questions";
+const SEC_B = "Section B: Fill in the Blanks";
+const SEC_C = "Section C: True or False";
+const SEC_D = "Section D: Match the Following Items";
+const SEC_E = "Section E: One-Word Answer Concepts";
+
+const QUESTIONS = [
+/* ===================== START OF QUESTIONS ===================== */
+
+/* ---------- Section A ---------- */
+{ section: SEC_A, question: "Which of the following is NOT a characteristic of civilisation?",
+  options: ["Urbanism", "Productive agriculture", "Hunting and gathering", "Some form of writing"], answer: "C", explanation: "" },
+{ section: SEC_A, question: "The earliest civilisation began in Mesopotamia about:",
+  options: ["1,000 years ago", "2,000 years ago", "4,000 years ago", "6,000 years ago"], answer: "D", explanation: "" },
+{ section: SEC_A, question: "Which river made the plains of Punjab and Sindh fertile?",
+  options: ["Indus", "Sarasvatī", "Ganga", "Yamuna"], answer: "A", explanation: "" },
+{ section: SEC_A, question: "The transition of villages into cities happened around:",
+  options: ["4000 BCE", "2600 BCE", "1500 BCE", "1000 BCE"], answer: "B", explanation: "" },
+{ section: SEC_A, question: "The Sarasvatī River is known today as:",
+  options: ["Ravi", "Ghaggar-Hakra", "Sutlej", "Ganga"], answer: "B", explanation: "" },
+{ section: SEC_A, question: "What material was used to waterproof the Great Bath?",
+  options: ["Clay", "Natural bitumen", "Sandstone", "Cement"], answer: "B", explanation: "Natural bitumen, a tar-like substance, was used to make the Great Bath watertight." },
+{ section: SEC_A, question: "In Mohenjo-daro, people drew water mainly from:",
+  options: ["Rivers", "Ponds", "Brick wells", "Tanks"], answer: "C", explanation: "" },
+{ section: SEC_A, question: "The Harappans were the first in Eurasia to grow:",
+  options: ["Rice", "Maize", "Sugarcane", "Cotton"], answer: "D", explanation: "" },
+{ section: SEC_A, question: "Harappan seals were usually made of:",
+  options: ["Steatite", "Clay", "Iron", "Bronze"], answer: "A", explanation: "" },
+{ section: SEC_A, question: "Around which year did the Sindhu-Sarasvatī civilisation begin to decline?",
+  options: ["2600 BCE", "2200 BCE", "1900 BCE", "1500 BCE"], answer: "C", explanation: "" },
+{ section: SEC_A, question: "Which Harappan city is famous for its massive rock-cut water reservoirs?",
+  options: ["Harappa", "Mohenjo-daro", "Dholavira", "Lothal"], answer: "C", explanation: "" },
+{ section: SEC_A, question: "What strong metal did the Harappans create by mixing copper with tin?",
+  options: ["Iron", "Gold", "Bronze", "Silver"], answer: "C", explanation: "" },
+{ section: SEC_A, question: "What soft stone was heated to make the small trading seals of the Harappans?",
+  options: ["Granite", "Steatite", "Marble", "Sandstone"], answer: "B", explanation: "" },
+{ section: SEC_A, question: "Which ancient text contains the earliest mention of the Sarasvati River flowing from the mountain to the sea?",
+  options: ["Rig Veda", "Ramayana", "Mahabharata", "Upanishads"], answer: "A", explanation: "" },
+{ section: SEC_A, question: "Around which year did the major Harappan cities begin to empty out and decline?",
+  options: ["4000 BCE", "2600 BCE", "1900 BCE", "500 CE"], answer: "C", explanation: "" },
+
+/* ---------- Section B ---------- */
+{ section: SEC_B, question: "Civilisation is considered an _____ stage of human society.",
+  options: ["early", "advanced", "primitive", "nomadic"], answer: "B", explanation: "" },
+{ section: SEC_B, question: "The management of raw materials and production of goods is known as _____.",
+  options: ["agriculture", "trade", "crafts", "metallurgy"], answer: "C", explanation: "" },
+{ section: SEC_B, question: "The Harappan civilisation began in the _____ region of the Indian Subcontinent.",
+  options: ["northeast", "northwest", "southern", "eastern"], answer: "B", explanation: "" },
+{ section: SEC_B, question: "The Sarasvati River used to flow from the foothills of the _____.",
+  options: ["Vindhyas", "Aravallis", "Himalayas", "Western Ghats"], answer: "C", explanation: "" },
+{ section: SEC_B, question: "The Harappan city of _____ is in Haryana.",
+  options: ["Lothal", "Harappa", "Mohenjo-daro", "Rakhigarhi"], answer: "D", explanation: "" },
+{ section: SEC_B, question: "Rivers enriched the soil and made it suitable for _____.",
+  options: ["mining", "architecture", "agriculture", "pottery"], answer: "C", explanation: "" },
+{ section: SEC_B, question: "The Harappans had no evidence of keeping an _____ or weapons of war.",
+  options: ["army", "treasury", "archive", "inventory"], answer: "A", explanation: "" },
+{ section: SEC_B, question: "Although the cities disappeared, Harappan _____ and technology survived.",
+  options: ["trade", "culture", "currency", "script"], answer: "B", explanation: "" },
+{ section: SEC_B, question: "The _____ River dried up, leading to the decline of many Harappan cities.",
+  options: ["Indus", "Yamuna", "Sarasvatī", "Ganga"], answer: "C", explanation: "" },
+{ section: SEC_B, question: "Reduced _____ after 2200 BCE made agriculture harder.",
+  options: ["rainfall", "soil fertility", "sunlight", "river flow"], answer: "A", explanation: "" },
+{ section: SEC_B, question: "The first city of this civilisation to be excavated in 1920–1921 was _____.",
+  options: ["Mohenjo-daro", "Harappa", "Dholavira", "Kalibangan"], answer: "B", explanation: "" },
+{ section: SEC_B, question: "The Harappans were the first people in Eurasia to grow _____ and weave it into clothes.",
+  options: ["jute", "silk", "cotton", "wool"], answer: "C", explanation: "" },
+{ section: SEC_B, question: "The large brick tank with waterproof bitumen found in Mohenjo-daro is called the _____.",
+  options: ["Great Granary", "Great Bath", "Dockyard", "Reservoir"], answer: "B", explanation: "" },
+{ section: SEC_B, question: "A giant brick basin discovered at _____ served as an ancient dockyard for sea trade.",
+  options: ["Lothal", "Banawali", "Dholavira", "Rakhigarhi"], answer: "A", explanation: "" },
+{ section: SEC_B, question: "The drying up of the _____ River and climate change caused the major cities to be abandoned.",
+  options: ["Indus", "Brahmaputra", "Sarasvati", "Narmada"], answer: "C", explanation: "" },
+
+/* ---------- Section C (True = A, False = B) ---------- */
+{ section: SEC_C, question: "Civilisation must have some form of government and administration.",
+  options: ["True", "False"], answer: "A", explanation: "" },
+{ section: SEC_C, question: "Writing was not necessary for early civilisations.",
+  options: ["True", "False"], answer: "B", explanation: "" },
+{ section: SEC_C, question: "Ancient Egypt's civilisation started before Mesopotamia.",
+  options: ["True", "False"], answer: "B", explanation: "" },
+{ section: SEC_C, question: "Harappa and Mohenjo-daro were cities on the Indus River.",
+  options: ["True", "False"], answer: "A", explanation: "" },
+{ section: SEC_C, question: "The Yamuna is a tributary of the Sarasvati.",
+  options: ["True", "False"], answer: "A", explanation: "" },
+{ section: SEC_C, question: "The Indus-Sarasvati civilisation is one of the oldest civilisations in the world.",
+  options: ["True", "False"], answer: "A", explanation: "" },
+{ section: SEC_C, question: "The Great Bath was used only as a public swimming pool.",
+  options: ["True", "False"], answer: "B", explanation: "" },
+{ section: SEC_C, question: "Warehouses were used for storing goods in Harappan cities.",
+  options: ["True", "False"], answer: "A", explanation: "" },
+{ section: SEC_C, question: "The largest reservoir at Dholavira measured 73 metres.",
+  options: ["True", "False"], answer: "A", explanation: "" },
+{ section: SEC_C, question: "The Lothal dockyard shows the importance of maritime trade.",
+  options: ["True", "False"], answer: "A", explanation: "" },
+{ section: SEC_C, question: "Harappan homes had dirty wastewater flowing openly in the middle of all main public streets.",
+  options: ["True", "False"], answer: "B", explanation: "" },
+{ section: SEC_C, question: "Archaeologists found massive collections of swords, shields, and armor, showing that the Harappans were a very violent military empire.",
+  options: ["True", "False"], answer: "B", explanation: "" },
+{ section: SEC_C, question: "Carnelian was a popular reddish stone used by Harappan craftspeople to make beautiful beads.",
+  options: ["True", "False"], answer: "A", explanation: "" },
+{ section: SEC_C, question: "The 'Dancing Girl' is a famous tiny bronze statue discovered in Mohenjo-daro.",
+  options: ["True", "False"], answer: "A", explanation: "" },
+{ section: SEC_C, question: "All Harappan cities completely vanished from history, and none of their traditions or lifestyle survived.",
+  options: ["True", "False"], answer: "B", explanation: "" },
+
+/* ---------- Section D ---------- */
+{ section: SEC_D, question: "Which region corresponds to Mesopotamia in the ancient world context?",
+  options: ["Harappa", "Kalibangan / Banawali", "Dholavira", "Iraq and Syria"], answer: "D", explanation: "" },
+{ section: SEC_D, question: "The Indus-Sarasvati Civilisation is also known as:",
+  options: ["Harappan Civilisation", "Rig Vedic Civilisation", "Mesopotamian Civilisation", "Egyptian Civilisation"], answer: "A", explanation: "" },
+{ section: SEC_D, question: "Which sacred text mentions the Sarasvatī River?",
+  options: ["Sama Veda", "Rig Veda", "Atharva Veda", "Yajur Veda"], answer: "B", explanation: "" },
+{ section: SEC_D, question: "What is the first discovered Harappan city?",
+  options: ["Mohenjo-daro", "Lothal", "Harappa", "Dholavira"], answer: "C", explanation: "" },
+{ section: SEC_D, question: "Where were six large stone reservoirs found?",
+  options: ["Dholavira", "Rakhigarhi", "Kalibangan", "Chanhudaro"], answer: "A", explanation: "" },
+{ section: SEC_D, question: "Which sites were abandoned due to the drying of the Sarasvatī?",
+  options: ["Harappa and Mohenjo-daro", "Kalibangan / Banawali", "Lothal and Dholavira", "Sutkagen Dor and Mehrgarh"], answer: "B", explanation: "" },
+
+/* ---------- Section E ---------- */
+{ section: SEC_E, question: "A science which is related to the extraction and study of metals:",
+  options: ["Archaeology", "Metallurgy", "Numismatics", "Stratigraphy"], answer: "B", explanation: "" },
+{ section: SEC_E, question: "Name the river valley region where civilisation first began:",
+  options: ["Nile valley", "Indus valley", "Mesopotamia", "Hwang Ho valley"], answer: "C", explanation: "" },
+{ section: SEC_E, question: "A river that flows into a larger river is called:",
+  options: ["Estuary", "Delta", "Tributary", "Distributary"], answer: "C", explanation: "" },
+{ section: SEC_E, question: "Inhabitants of the Indus-Sarasvatī civilisation are known as:",
+  options: ["Mesopotamians", "Harappans", "Sumerians", "Egyptians"], answer: "B", explanation: "" },
+{ section: SEC_E, question: "A massive protective wall around a city is known as:",
+  options: ["Fortification", "Barricade", "Rampart", "Embankment"], answer: "A", explanation: "" },
+{ section: SEC_E, question: "The higher layers of society such as rulers and priests are referred to as the:",
+  options: ["Plebeians", "Elite", "Proletariat", "Commoners"], answer: "B", explanation: "" },
+{ section: SEC_E, question: "The Harappan site in Gujarat with a dockyard is:",
+  options: ["Dholavira", "Kalibangan", "Lothal", "Surkotada"], answer: "C", explanation: "" },
+{ section: SEC_E, question: "A large place, natural or artificial, where water is stored is called a:",
+  options: ["Reservoir", "Basin", "Well", "Cistern"], answer: "A", explanation: "" },
+{ section: SEC_E, question: "Small clay model of a farming tool used by Harappans:",
+  options: ["Sickle", "Plough", "Hoe", "Trowel"], answer: "B", explanation: "" },
+{ section: SEC_E, question: "Reddish semiprecious stone used for ornaments by the Harappans:",
+  options: ["Lapis Lazuli", "Carnelian", "Turquoise", "Jasper"], answer: "B", explanation: "Carnelian is a reddish stone that Harappan craftspeople used to make beads." }
+
+/* ====================== END OF QUESTIONS ====================== */
+];
+</script>
+
+<!-- =====================================================================
+     SCRIPT 2 of 2: EXAM ENGINE  (no need to edit below this line)
+     ===================================================================== -->
+<script>
+(function () {
+  'use strict';
+
+  var LETTERS = ['A', 'B', 'C', 'D'];
+  var MAX_VIOLATIONS = 2;           // 1st = warning, 2nd = automatic submission
+  var WARNING_TEXT = 'WARNING 1: Leaving the examination page is not allowed. One more violation will automatically submit your test.';
+
+  function $(id) { return document.getElementById(id); }
+
+  /* ---------- Validate the question data ---------- */
+  var problems = [];
+  if (!Array.isArray(QUESTIONS) || QUESTIONS.length === 0) {
+    problems.push('There are no questions. Add questions to the QUESTIONS array.');
+  } else {
+    QUESTIONS.forEach(function (q, i) {
+      var n = 'Question ' + (i + 1);
+      if (!q || typeof q.question !== 'string' || !q.question.trim()) { problems.push(n + ': missing question text.'); return; }
+      if (!Array.isArray(q.options) || q.options.length < 2 || q.options.length > 4 ||
+          q.options.some(function (o) { return typeof o !== 'string' || !o.trim(); })) {
+        problems.push(n + ': needs 2 to 4 non-empty options (use 4 for normal MCQs, 2 for True/False).');
+      }
+      var ai = LETTERS.indexOf(String(q.answer).trim().toUpperCase());
+      if (ai === -1 || (Array.isArray(q.options) && ai >= q.options.length)) {
+        problems.push(n + ': "answer" must be the letter of one of its options (A, B, C or D).');
+      }
+    });
+  }
+  var ANSWER_INDEX = problems.length ? [] : QUESTIONS.map(function (q) {
+    return LETTERS.indexOf(String(q.answer).trim().toUpperCase());
+  });
+
+  /* ---------- State (single source of truth) ---------- */
+  var state = {
+    started: false,
+    submitted: false,
+    order: [],              // question indexes in display order
+    answers: [],            // answers[questionIndex] = 0..3 or null
+    current: 0,             // position in state.order
+    endTime: 0,
+    timerId: null,
+    studentName: '',
+    violations: 0,          // the ONE violation counter
+    incidentActive: false,  // true while the page is hidden for a counted incident
+    reason: '',
+    submittedAt: null,
+    result: null
+  };
+
+  /* ---------- Small helpers ---------- */
+  function showScreen(name) {
+    $('screenStart').classList.toggle('hidden', name !== 'start');
+    $('screenExam').classList.toggle('hidden', name !== 'exam');
+    $('screenResult').classList.toggle('hidden', name !== 'result');
+  }
+  function openModal(id, focusId) {
+    $(id).classList.remove('hidden');
+    if (focusId) { try { $(focusId).focus(); } catch (e) {} }
+  }
+  function closeModal(id) { $(id).classList.add('hidden'); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function pad(n) { return n < 10 ? '0' + n : String(n); }
+  function formatTime(ms) {
+    var total = Math.max(0, Math.ceil(ms / 1000));
+    var h = Math.floor(total / 3600);
+    var m = Math.floor((total % 3600) / 60);
+    var s = total % 60;
+    return (h > 0 ? h + ':' + pad(m) : pad(m)) + ':' + pad(s);
+  }
+  function fmtNum(x) { return String(Math.round(x * 100) / 100); }
+  function countAnswered() {
+    var c = 0;
+    for (var i = 0; i < state.answers.length; i++) if (state.answers[i] !== null) c++;
+    return c;
+  }
+
+  /* ---------- Start screen ---------- */
+  function setupStartScreen() {
+    document.title = CONFIG.testTitle;
+    $('startTitle').textContent = CONFIG.testTitle;
+    $('startSubtitle').textContent = CONFIG.testSubtitle || '';
+    $('examTitle').textContent = CONFIG.testTitle;
+
+    var facts = $('facts');
+    facts.appendChild(el('li', '', QUESTIONS.length + ' questions'));
+    facts.appendChild(el('li', '', CONFIG.durationMinutes + ' minutes'));
+    facts.appendChild(el('li', '', '+' + fmtNum(CONFIG.marksPerCorrect) + ' per correct answer'));
+    facts.appendChild(el('li', '', CONFIG.negativeMarksPerWrong > 0
+      ? '\u2212' + fmtNum(CONFIG.negativeMarksPerWrong) + ' per wrong answer'
+      : 'No negative marking'));
+
+    var ins = $('instructions');
+    CONFIG.instructions.forEach(function (t) { ins.appendChild(el('li', '', t)); });
+
+    if (!CONFIG.askStudentName) {
+      document.querySelector('.field').classList.add('hidden');
+    } else if (CONFIG.nameRequired) {
+      $('nameLabel').textContent = 'Your name (required)';
+    } else {
+      $('nameLabel').textContent = 'Your name (optional)';
+    }
+
+    if (problems.length) {
+      var box = $('problemBox');
+      box.classList.remove('hidden');
+      box.appendChild(el('strong', '', 'The question list has problems. Fix these in index.html:'));
+      var ul = el('ul');
+      problems.slice(0, 20).forEach(function (p) { ul.appendChild(el('li', '', p)); });
+      box.appendChild(ul);
+      $('startBtn').disabled = true;
+    }
+  }
+
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  function startExam() {
+    if (state.started || problems.length) return;
+    var name = CONFIG.askStudentName ? $('studentName').value.trim() : '';
+    if (CONFIG.askStudentName && CONFIG.nameRequired && !name) {
+      $('startError').textContent = 'Please type your name to start.';
+      $('studentName').focus();
+      return;
+    }
+    $('startError').textContent = '';
+    $('startBtn').disabled = true;
+
+    state.studentName = name;
+    state.order = QUESTIONS.map(function (_, i) { return i; });
+    if (CONFIG.shuffleQuestions) shuffle(state.order);
+    state.answers = QUESTIONS.map(function () { return null; });
+    state.current = 0;
+    state.endTime = Date.now() + CONFIG.durationMinutes * 60 * 1000;
+    state.started = true;
+
+    showScreen('exam');
+    document.body.classList.add('exam-active');
+    window.addEventListener('beforeunload', onBeforeUnload);
+    state.timerId = setInterval(tick, 250);
+    tick();
+    renderQuestion();
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Timer (uses real clock time, so it never drifts) ---------- */
+  function tick() {
+    if (!state.started || state.submitted) return;
+    var remaining = state.endTime - Date.now();
+    var t = $('timer');
+    t.textContent = formatTime(remaining);
+    t.classList.toggle('low', remaining <= 5 * 60 * 1000);
+    if (remaining <= 0) submitExam('timeout');
+  }
+
+  /* ---------- Rendering the question ---------- */
+  function renderQuestion() {
+    var qi = state.order[state.current];
+    var q = QUESTIONS[qi];
+    $('qCount').textContent = 'Question ' + (state.current + 1) + ' of ' + state.order.length;
+    $('qSection').textContent = q.section || '';
+    $('qText').textContent = q.question;
+
+    var box = $('options');
+    box.innerHTML = '';
+    q.options.forEach(function (text, i) {
+      var b = el('button', 'opt' + (state.answers[qi] === i ? ' selected' : ''));
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', state.answers[qi] === i ? 'true' : 'false');
+      b.appendChild(el('span', 'letter', LETTERS[i]));
+      b.appendChild(el('span', 'opt-text', text));
+      b.addEventListener('click', function () { selectAnswer(qi, i); });
+      box.appendChild(b);
+    });
+
+    $('prevBtn').disabled = state.current === 0;
+    $('nextBtn').disabled = state.current === state.order.length - 1;
+    $('clearBtn').disabled = state.answers[qi] === null;
+    renderNav();
+  }
+
+  function selectAnswer(qi, optIndex) {
+    if (state.submitted) return;               // locked after submission
+    state.answers[qi] = optIndex;
+    renderQuestion();
+  }
+
+  function clearAnswer() {
+    if (state.submitted) return;
+    state.answers[state.order[state.current]] = null;
+    renderQuestion();
+  }
+
+  function goTo(pos) {
+    if (state.submitted) return;
+    if (pos < 0 || pos >= state.order.length) return;
+    state.current = pos;
+    renderQuestion();
+    window.scrollTo(0, 0);
+  }
+
+  function renderNav() {
+    var grid = $('navGrid');
+    grid.innerHTML = '';
+    state.order.forEach(function (qi, pos) {
+      var answered = state.answers[qi] !== null;
+      var cls = 'nav-btn' + (answered ? ' answered' : '') + (pos === state.current ? ' current' : '');
+      var b = el('button', cls, String(pos + 1));
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Question ' + (pos + 1) + (answered ? ', answered' : ', not answered') +
+                     (pos === state.current ? ', current' : ''));
+      b.addEventListener('click', function () { goTo(pos); });
+      grid.appendChild(b);
+    });
+    $('progressText').textContent = countAnswered() + ' of ' + state.order.length + ' answered';
+  }
+
+  /* ---------- Submit flow ---------- */
+  function askToSubmit() {
+    if (!state.started || state.submitted) return;
+    var answered = countAnswered();
+    var left = state.order.length - answered;
+    $('confirmText').textContent = 'You have answered ' + answered + ' of ' + state.order.length +
+      ' questions. ' + (left > 0 ? left + ' unanswered.' : 'All questions are answered.');
+    openModal('confirmModal', 'confirmCancel');
+  }
+
+  function grade() {
+    var correct = 0, wrong = 0, blank = 0;
+    for (var i = 0; i < QUESTIONS.length; i++) {
+      var a = state.answers[i];
+      if (a === null) blank++;
+      else if (a === ANSWER_INDEX[i]) correct++;
+      else wrong++;
+    }
+    var marks = correct * CONFIG.marksPerCorrect - wrong * CONFIG.negativeMarksPerWrong;
+    if (!CONFIG.allowNegativeTotal && marks < 0) marks = 0;
+    return {
+      correct: correct, wrong: wrong, blank: blank,
+      marks: marks,
+      maxMarks: QUESTIONS.length * CONFIG.marksPerCorrect
+    };
+  }
+
+  // The only place where a test is finished. The "submitted" flag makes
+  // double submission (e.g. timer + button at the same moment) impossible.
+  function submitExam(reason) {
+    if (!state.started || state.submitted) return;
+    state.submitted = true;
+    state.reason = reason;
+    state.submittedAt = new Date();
+    clearInterval(state.timerId);
+    window.removeEventListener('beforeunload', onBeforeUnload);
+    document.body.classList.remove('exam-active');
+    closeModal('confirmModal');
+    closeModal('warnModal');
+    state.result = grade();
+    renderResult();
+    showScreen('result');
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Result screen ---------- */
+  function statusText() {
+    if (state.reason === 'timeout') return 'Time was up, so the test was submitted automatically.';
+    if (state.reason === 'violation') return 'The test was submitted automatically because you left the examination page a second time.';
+    return 'Submitted successfully by you.';
+  }
+
+  function summaryText() {
+    var r = state.result;
+    var lines = [CONFIG.testTitle];
+    if (state.studentName) lines.push('Name: ' + state.studentName);
+    lines.push('Marks: ' + fmtNum(r.marks) + ' / ' + fmtNum(r.maxMarks));
+    lines.push('Correct: ' + r.correct + ', Incorrect: ' + r.wrong + ', Unanswered: ' + r.blank);
+    lines.push('Status: ' + statusText());
+    lines.push('Submitted at: ' + state.submittedAt.toLocaleString());
+    return lines.join('\n');
+  }
+
+  function renderResult() {
+    var r = state.result;
+    var auto = state.reason !== 'manual';
+    var badge = $('statusBadge');
+    badge.textContent = state.reason === 'manual' ? 'Submitted' : (state.reason === 'timeout' ? 'Auto-submitted: time up' : 'Auto-submitted: page left twice');
+    badge.classList.toggle('auto', auto);
+
+    $('resultTitle').textContent = CONFIG.testTitle;
+    $('resultWho').textContent = (state.studentName ? state.studentName + ' \u2022 ' : '') + state.submittedAt.toLocaleString();
+
+    var big = $('scoreBig');
+    big.textContent = fmtNum(r.marks);
+    big.appendChild(el('small', '', ' / ' + fmtNum(r.maxMarks) + ' marks'));
+    $('scoreNote').textContent = CONFIG.negativeMarksPerWrong > 0
+      ? 'Marking: +' + fmtNum(CONFIG.marksPerCorrect) + ' per correct, \u2212' + fmtNum(CONFIG.negativeMarksPerWrong) + ' per wrong, 0 for unanswered.'
+      : 'Marking: +' + fmtNum(CONFIG.marksPerCorrect) + ' per correct answer, no negative marking.';
+    $('statCorrect').textContent = r.correct;
+    $('statWrong').textContent = r.wrong;
+    $('statBlank').textContent = r.blank;
+    $('submitStatus').textContent = statusText() + ' Answers are now locked.';
+    $('waLink').href = 'https://wa.me/?text=' + encodeURIComponent(summaryText());
+
+    renderReview();
+  }
+
+  function renderReview() {
+    var panel = $('reviewPanel');
+    var list = $('reviewList');
+    list.innerHTML = '';
+    if (!CONFIG.showCorrectAnswersAfterSubmit && !CONFIG.showExplanationsAfterSubmit) {
+      panel.classList.add('hidden');
+      return;
+    }
+    state.order.forEach(function (qi, pos) {
+      var q = QUESTIONS[qi];
+      var chosen = state.answers[qi];
+      var item = el('div', 'review-item');
+      item.appendChild(el('h3', '', (pos + 1) + '. ' + q.question));
+      q.options.forEach(function (text, i) {
+        var isCorrect = i === ANSWER_INDEX[qi];
+        var isChosen = chosen === i;
+        var cls = 'review-opt';
+        var tag = '';
+        if (CONFIG.showCorrectAnswersAfterSubmit && isCorrect) { cls += ' correct'; tag = isChosen ? 'Your answer \u2713 Correct' : 'Correct answer'; }
+        else if (isChosen) { cls += (CONFIG.showCorrectAnswersAfterSubmit ? ' wrong' : ''); tag = CONFIG.showCorrectAnswersAfterSubmit ? 'Your answer \u2717 Wrong' : 'Your answer'; }
+        var row = el('div', cls);
+        row.appendChild(el('strong', '', LETTERS[i] + '.'));
+        row.appendChild(el('span', '', text));
+        if (tag) row.appendChild(el('span', 'tag', tag));
+        item.appendChild(row);
+      });
+      if (chosen === null) item.appendChild(el('p', 'note', 'You did not answer this question.'));
+      if (CONFIG.showExplanationsAfterSubmit && q.explanation && String(q.explanation).trim()) {
+        item.appendChild(el('div', 'explain', 'Explanation: ' + q.explanation));
+      }
+      list.appendChild(item);
+    });
+  }
+
+  function copyResult() {
+    var text = summaryText();
+    var msg = $('copyMsg');
+    function ok() { msg.textContent = 'Result copied. You can paste it in a message to your tutor.'; }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy') ? ok() : (msg.textContent = 'Could not copy. Please take a screenshot instead.'); }
+      catch (e) { msg.textContent = 'Could not copy. Please take a screenshot instead.'; }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(ok, fallback);
+    } else { fallback(); }
+  }
+
+  /* ---------- ANTI-CHEATING (deterrents only; see note at top of file) ---------- */
+
+  // Tab / app switching. Only the Page Visibility API is used (not blur/focus),
+  // so one switch can never be counted twice. A new incident is counted only after
+  // the page has become visible again (incidentActive is reset on return).
+  document.addEventListener('visibilitychange', function () {
+    if (!state.started || state.submitted) return;
+    if (document.hidden) {
+      if (state.incidentActive) return;        // same incident, ignore
+      state.incidentActive = true;
+      state.violations++;
+      if (state.violations >= MAX_VIOLATIONS) {
+        submitExam('violation');               // 2nd incident: end the test now
+      } else {
+        $('warnText').textContent = WARNING_TEXT;
+        $('violationChip').classList.remove('hidden');
+        openModal('warnModal', 'warnOk');      // visible as soon as the student returns
+      }
+    } else {
+      state.incidentActive = false;            // student came back; next hide = new incident
+      tick();                                  // refresh the timer straight away
+    }
+  });
+
+  // Warn on accidental reload or close. Browsers decide whether to show it,
+  // and many mobile browsers ignore it. This cannot be reliably prevented.
+  function onBeforeUnload(e) {
+    if (!state.started || state.submitted) return;
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+
+  // Optional deterrent: block copy / cut / paste / right-click during the test.
+  function blockIfActive(e) {
+    if (CONFIG.blockCopyAndRightClick && state.started && !state.submitted) e.preventDefault();
+  }
+  document.addEventListener('contextmenu', blockIfActive);
+  document.addEventListener('copy', blockIfActive);
+  document.addEventListener('cut', blockIfActive);
+  document.addEventListener('paste', blockIfActive);
+
+  /* ---------- Wire up buttons ---------- */
+  $('startBtn').addEventListener('click', startExam);
+  $('prevBtn').addEventListener('click', function () { goTo(state.current - 1); });
+  $('nextBtn').addEventListener('click', function () { goTo(state.current + 1); });
+  $('clearBtn').addEventListener('click', clearAnswer);
+  $('submitBtn').addEventListener('click', askToSubmit);
+  $('confirmCancel').addEventListener('click', function () { closeModal('confirmModal'); });
+  $('confirmYes').addEventListener('click', function () { submitExam('manual'); });
+  $('warnOk').addEventListener('click', function () { closeModal('warnModal'); });
+  $('copyBtn').addEventListener('click', copyResult);
+  $('studentName').addEventListener('keydown', function (e) { if (e.key === 'Enter') startExam(); });
+
+  setupStartScreen();
+})();
+</script>
+</body>
+</html>
